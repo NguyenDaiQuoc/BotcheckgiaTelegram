@@ -9,6 +9,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time
 import logging
+import os
+TOKEN = os.environ.get("BOT_TOKEN")
 
 driver = webdriver.Chrome(ChromeDriverManager().install())
 
