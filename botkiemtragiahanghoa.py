@@ -1,7 +1,6 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext
 from selenium import webdriver
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -9,10 +8,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time
 import logging
-import os
-TOKEN = os.environ.get("BOT_TOKEN")
-
-driver = webdriver.Chrome(ChromeDriverManager().install())
 
 # Bật logging chi tiết cho debug
 logging.basicConfig(
@@ -45,7 +40,11 @@ def create_driver():
     chrome_options.add_argument("--ignore-certificate-errors")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--log-level=3")  # Giảm log
-
+    chrome_options.add_argument(
+    "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/123.0.0.0 Safari/537.36"
+    )
     service = Service(executable_path=chromedriver_path)
     return webdriver.Chrome(service=service, options=chrome_options)
 
@@ -90,19 +89,12 @@ def crawl_products(url):
             try:
                 name_el = card.find_element(By.CSS_SELECTOR, "a > h3")
                 name = name_el.text.strip()
-                if name in seen_names:
-                    continue
-
-                # Giá hiện tại
-                name_el = card.find_element(By.CSS_SELECTOR, "a > h3")
-                name = name_el.text.strip()
                 if not name or name in seen_names:
                     continue
 
                 price_el = card.find_element(By.CSS_SELECTOR, "div.product_price")
                 price = price_el.text.strip()
 
-                # Giá gốc
                 try:
                     price_origin_el = card.find_element(By.CSS_SELECTOR,
                         "div.mb-2px.block.leading-3 > span.line-through")
@@ -110,7 +102,6 @@ def crawl_products(url):
                 except:
                     price_origin = None
 
-                # % giảm giá
                 try:
                     discount_el = card.find_element(By.CSS_SELECTOR,
                         "div.mb-2px.block.leading-3 > span:not(.line-through)")
@@ -118,7 +109,6 @@ def crawl_products(url):
                 except:
                     discount = None
 
-                # Ưu đãi đặc biệt (quà tặng)
                 try:
                     gift_el = driver.find_element(By.CSS_SELECTOR,
                         "div.sticky.top-[100px] > div > div")
@@ -126,12 +116,19 @@ def crawl_products(url):
                 except:
                     gift = None
 
+                try:
+                    img_el = card.find_element(By.CSS_SELECTOR, "img")
+                    img_url = img_el.get_attribute("src") or img_el.get_attribute("data-src")
+                except:
+                    img_url = None
+
                 products.append({
                     "name": name,
                     "price": price,
                     "price_origin": price_origin,
                     "discount": discount,
                     "gift": gift,
+                    "image": img_url,
                 })
                 seen_names.add(name)
 
@@ -144,7 +141,6 @@ def crawl_products(url):
         if driver:
             driver.quit()
     return products
-
 
 def start(update: Update, context: CallbackContext):
     update.message.reply_text(
@@ -172,23 +168,33 @@ def button(update: Update, context: CallbackContext):
     products = crawl_products(url)
 
     if not products:
-        query.edit_message_text("❌ Không thể thu thập dữ liệu sản phẩm bằng Selenium.")
+        context.bot.send_message(chat_id=query.message.chat_id,
+                                 text="❌ Không thể thu thập dữ liệu sản phẩm bằng Selenium.")
         return
 
-    text = f"📦 *{ten_danh_muc}* (Top {len(products)} sản phẩm):\n\n"
-
     for p in products:
-        text += f"🛒 *{p['name']}*\n"
-        text += f"💰 Giá: {p['price']}\n"
+        caption = f"🛒 *{p['name']}*\n💰 Giá: {p['price']}\n"
         if p['price_origin']:
-            text += f"🔖 Giá gốc: {p['price_origin']}\n"
+            caption += f"🔖 Giá gốc: {p['price_origin']}\n"
         if p['discount']:
-            text += f"📉 Giảm giá: {p['discount']}\n"
+            caption += f"📉 Giảm giá: {p['discount']}\n"
         if p['gift']:
-            text += f"🎁 Ưu đãi: {p['gift']}\n"
-        text += "\n"
+            caption += f"🎁 Ưu đãi: {p['gift']}"
 
-    query.edit_message_text(text.strip(), parse_mode='Markdown')
+        if p['image']:
+            context.bot.send_photo(
+                chat_id=query.message.chat_id,
+                photo=p['image'],
+                caption=caption,
+                parse_mode='Markdown'
+            )
+        else:
+            context.bot.send_message(
+                chat_id=query.message.chat_id,
+                text=caption,
+                parse_mode='Markdown'
+            )
+
 
 def main():
     TOKEN = "7833019833:AAELIJXE-tCrJ_kYiIUKRBh2VnbTHINey_E"
