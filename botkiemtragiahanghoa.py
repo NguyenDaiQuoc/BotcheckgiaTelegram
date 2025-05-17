@@ -40,12 +40,17 @@ def create_driver():
     chrome_options.add_argument("--ignore-certificate-errors")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--log-level=3")  # Giảm log
+    chrome_options.add_argument("--window-size=1920x1080")
     chrome_options.add_argument(
     "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/123.0.0.0 Safari/537.36"
     )
-    service = Service(executable_path=chromedriver_path)
+     # Đường dẫn mặc định Railway/Render tải chromedriver
+    chrome_path = "/usr/bin/google-chrome"
+    driver_path = "/usr/bin/chromedriver"
+    chrome_options.binary_location = chrome_path
+    service = Service(executable_path=driver_path)
     return webdriver.Chrome(service=service, options=chrome_options)
 
 from selenium import webdriver
