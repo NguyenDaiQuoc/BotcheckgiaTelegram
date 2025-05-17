@@ -1,0 +1,7 @@
+app = "bot-check-gia-telegram"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PYTHONUNBUFFERED = "1"
