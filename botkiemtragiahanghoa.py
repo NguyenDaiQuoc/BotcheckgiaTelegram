@@ -8,7 +8,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time
 import logging
-
+import asyncio
+from playwright.sync_api import sync_playwright
 # Bật logging chi tiết cho debug
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -71,84 +72,62 @@ def create_driver():
     return webdriver.Chrome(options=options)
 
 def crawl_products(url):
-    driver = None
     products = []
     seen_names = set()
+
     try:
-        driver = create_driver()
-        driver.get(url)
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context()
+            page = context.new_page()
+            page.goto(url, timeout=60000)
 
-        wait = WebDriverWait(driver, 15)
+            page.wait_for_selector("#main-layout div.flex.flex-wrap.content-stretch.bg-white.px-0", timeout=10000)
 
-        container = wait.until(EC.presence_of_element_located((
-            By.CSS_SELECTOR,
-            "#main-layout > div > div.flex.flex-wrap.content-stretch.bg-white.px-0"
-        )))
+            for _ in range(5):
+                page.mouse.wheel(0, 5000)
+                time.sleep(1)
 
-        time.sleep(2)
-        for _ in range(5):
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(1.5)
+            product_cards = page.query_selector_all("div.flex.flex-wrap.content-stretch.bg-white.px-0 > div > div")
 
-        product_cards = container.find_elements(By.CSS_SELECTOR, "div > div")
+            for card in product_cards:
+                if len(products) >= 20:
+                    break
+                try:
+                    name_el = card.query_selector("a > h3")
+                    if not name_el:
+                        continue
+                    name = name_el.inner_text().strip()
+                    if name in seen_names:
+                        continue
 
-        for card in product_cards:
-            if len(products) >= 20:
-                break
-            try:
-                name_el = card.find_element(By.CSS_SELECTOR, "a > h3")
-                name = name_el.text.strip()
-                if not name or name in seen_names:
+                    price_el = card.query_selector("div.product_price")
+                    price = price_el.inner_text().strip() if price_el else "?"
+
+                    price_origin_el = card.query_selector("div.mb-2px.block.leading-3 > span.line-through")
+                    price_origin = price_origin_el.inner_text().strip() if price_origin_el else None
+
+                    discount_el = card.query_selector("div.mb-2px.block.leading-3 > span:not(.line-through)")
+                    discount = discount_el.inner_text().strip() if discount_el else None
+
+                    gift_el = card.query_selector("div.sticky.top-[100px] > div > div")
+                    gift = gift_el.inner_text().strip() if gift_el else None
+
+                    products.append({
+                        "name": name,
+                        "price": price,
+                        "price_origin": price_origin,
+                        "discount": discount,
+                        "gift": gift,
+                    })
+                    seen_names.add(name)
+                except Exception:
                     continue
 
-                price_el = card.find_element(By.CSS_SELECTOR, "div.product_price")
-                price = price_el.text.strip()
-
-                try:
-                    price_origin_el = card.find_element(By.CSS_SELECTOR,
-                        "div.mb-2px.block.leading-3 > span.line-through")
-                    price_origin = price_origin_el.text.strip()
-                except:
-                    price_origin = None
-
-                try:
-                    discount_el = card.find_element(By.CSS_SELECTOR,
-                        "div.mb-2px.block.leading-3 > span:not(.line-through)")
-                    discount = discount_el.text.strip()
-                except:
-                    discount = None
-
-                try:
-                    gift_el = driver.find_element(By.CSS_SELECTOR,
-                        "div.sticky.top-[100px] > div > div")
-                    gift = gift_el.text.strip()
-                except:
-                    gift = None
-
-                try:
-                    img_el = card.find_element(By.CSS_SELECTOR, "img")
-                    img_url = img_el.get_attribute("src") or img_el.get_attribute("data-src")
-                except:
-                    img_url = None
-
-                products.append({
-                    "name": name,
-                    "price": price,
-                    "price_origin": price_origin,
-                    "discount": discount,
-                    "gift": gift,
-                    "image": img_url,
-                })
-                seen_names.add(name)
-
-            except Exception:
-                continue
-
+            browser.close()
     except Exception as e:
-        print("❌ Lỗi khi crawl:", e)
-    finally:
-        if driver:
-            driver.quit()
+        print("❌ Lỗi khi crawl với Playwright:", e)
+
     return products
 
 def start(update: Update, context: CallbackContext):
