@@ -2,6 +2,7 @@
 
 # Cập nhật & cài đặt các gói cần thiết
 apt-get update && apt-get install -y wget unzip curl gnupg
+playwright install --with-deps
 
 # Thêm repo Google & cài đặt Google Chrome
 wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
