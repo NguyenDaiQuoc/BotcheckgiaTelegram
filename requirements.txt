@@ -3,3 +3,4 @@ selenium
 apscheduler
 webdriver-manager
 urllib3==1.26.18
+playwright==1.44.0
