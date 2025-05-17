@@ -1,23 +1,26 @@
-FROM python:3.12-slim
+# Image gốc có Python 3.8
+FROM python:3.8-slim
 
-# Cài chromium và các dependency cần thiết
+# Cài các package cần thiết
 RUN apt-get update && apt-get install -y \
-    chromium-driver chromium \
-    python3-pip \
-    fonts-liberation \
-    libatk-bridge2.0-0 libatk1.0-0 libx11-xcb1 \
-    libxcomposite1 libxdamage1 libxrandr2 xdg-utils \
-    libu2f-udev libvulkan1 libgbm1 libxshmfence1 \
-    && rm -rf /var/lib/apt/lists/*
+    wget \
+    unzip \
+    curl \
+    gnupg \
+    chromium-driver \
+    chromium \
+    && apt-get clean
 
-# Thiết lập biến môi trường cho chromium
+# Biến môi trường cho Selenium dùng Chromium
 ENV CHROME_BIN=/usr/bin/chromium
-ENV PATH="${PATH}:/usr/bin/chromium"
+ENV PATH="${PATH}:/usr/lib/chromium/"
 
-# Cài pip packages
+# Tạo thư mục và copy code vào container
 WORKDIR /app
 COPY . /app
+
+# Cài đặt thư viện Python
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Run bot
+# Chạy bot
 CMD ["python", "botkiemtragiahanghoa.py"]
