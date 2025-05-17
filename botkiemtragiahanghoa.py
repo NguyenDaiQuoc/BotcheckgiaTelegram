@@ -49,8 +49,8 @@ def create_driver():
      # Đường dẫn mặc định Railway/Render tải chromedriver
     chrome_path = "/usr/bin/google-chrome"
     driver_path = "/usr/bin/chromedriver"
-    chrome_options.binary_location = chrome_path
-    service = Service(executable_path=driver_path)
+    chrome_options.binary_location = chrome_path    
+    service = Service(executable_path="/usr/local/bin/chromedriver")
     return webdriver.Chrome(service=service, options=chrome_options)
 
 from selenium import webdriver
